@@ -1,0 +1,193 @@
+---
+title: "Mass Shootings in the US"
+author: "Joann Lariza"
+date: "2023-04-18"
+output: html_document
+---
+
+Introduction and Dataset: 
+In recent years, we have seen a spike in shootings. In the US, they have ranged from sprees to mass shootings in nearly all fifty states. Mass shootings are defined as events that result in 4+ deaths. What could be the cause of such tragic events? Do they happen more often in one state than the other? The datasets can be found at "<https://data.world/awram/us-mass-shootings>" and "https://www.openintro.org/book/statdata/index.php?data=gun_violence". Let us look at the trend of events over time and the demographics of shooters.
+
+```{r, libraries, echo = FALSE}
+# Set up 
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(plotly)
+library(sf)
+library(maps)
+library(tidyverse)
+library(tidycensus)
+library(flextable)
+library(gganimate)
+```
+
+```{r, Initialization, echo = FALSE}
+#Initialization 
+shootings <- read_csv("mother_jones_mass_shootings_database_1982_2019.csv")
+demographicOfShooters <- read_csv("usmassshootings.csv")
+gunviolence <- read_csv("gun_violence.csv")
+```
+
+Analysis: 
+```{r , Table of Events with the Most Victims,echo = FALSE}
+displayShootingsTable1 <- shootings |>
+  mutate(
+    total_victims = as.numeric(total_victims)
+  ) |>
+  select(case, year, total_victims) |>
+  arrange(desc(total_victims)) |>
+  head(n=10)
+
+displayShootingsTable1 |>
+  flextable(col_keys = colnames(displayShootingsTable1), head(displayShootingsTable1)) 
+
+```
+
+Let us first begin by looking at the spread of data throughout the years. This dataset begins from 1982 all the way to the beginning of 2023. In this part, I extracted the year to make the data more manageable and easier to work with, in addition to creating a `Total` variable that counted the amount of shootings per year. In regards to this portion of my analysis, I had trouble animating it and having it both be embedded in the knitted HTML file. As a compromise with myself, I decided to make the graph interactive in another way: using the library ggplotly. I used the resources at https://www.geeksforgeeks.org/create-interactive-ggplot2-graphs-with-plotly-in-r/ and the knowledge I had from previous projects to create these visualizations.  
+
+```{r,  Graph: Number of Shootings Per Year, echo = FALSE}
+shootings1 <- shootings |>
+  count(year, name = "Total") |>
+  ggplot(aes(x = year, y = `Total`, fill = year)) + 
+  geom_bar(stat = "identity") +
+  #geom_smooth() + 
+  theme_bw() + 
+  ggtitle("Number of Shootings Per Year") +
+  transition_states(year, wrap = FALSE) +
+  shadow_mark()
+ 
+ggplotly(shootings1)
+```
+
+We can see from the graph that the number of mass shootings per year increased dramatically in recent years, specifically from years 2010 to 2020. Increase in stressors could potentially be large cause of it, especially with many widescale events occuring in the past decade, such as threats of recession, political disputes, and the COVID-19 pandemic. Mass shootings were at it's highest in the past ten years, with 12 shootings in a year being the most recorded. It should be noted that there are many other instances that may not be recorded, that also relate to guns, such as murders and suicides. An article I thought was interesting can be found at https://www.bbc.com/news/world-us-canada-64377360, which discusses the potential causes of large-scale shooting events. 
+
+```{r, table: shootings in the past year, echo = FALSE}
+shootings2 <- shootings |>
+  select(case, year) |>
+  count(year, name = "Total") |>
+  arrange(desc(year)) |>
+  head(n=10)
+
+shootings2 |>
+  flextable(col_keys = colnames(shootings2), head(shootings2))
+```
+
+When plotting the longitude and latitude of each mass shooting in the dataset, we see the rough outline of the US take shape. Most of the shootings seem clustered towards the west coast. I had to filter out any "NA" values, as they wouldn't plot onto the graph. 
+
+```{r, graph: basic map of longitude and latitude of shootings,  echo = FALSE}
+shootings3 <- shootings |>
+  ggplot(aes(x = longitude, latitude)) + 
+  geom_point() 
+
+shootings3
+```
+
+Now I want to look at the demographics of shooters. To do this, I filtered out the second dataset, so that I'm left with basic information that describes a person: their race, gender, the state they committed the crime in, and the number of weapons they obtained. 
+
+First, when looking at the demographics of shooters, I wanted to analyze both gender and race. Below are two visualizations that I created with help from https://r-graph-gallery.com/piechart-ggplot2.html. Here I was able to develop two pie charts.
+```{r, filtering of demographic csv,echo = FALSE}
+ demographic <- demographicOfShooters |>
+  select(gender, race, state, year, numweapons) 
+  
+```
+
+
+```{r, Graph: Distribution of Gender,echo = FALSE}
+demographic1 <- demographic |>
+  ggplot(aes(x="", y=gender, fill=gender)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  theme_void() +
+  ggtitle("Distribution of Gender Amongst Shooters")
+
+print(demographic1)
+```
+
+
+```{r, Graph: Distribution of Races, echo = FALSE}
+demographic2 <- demographic |>
+  ggplot(aes(x="", y=race, fill=race)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  ggtitle("Distribution of Races Amongst Shooters")
+
+print(demographic2)
+```
+From these two previous graphs, we can denote that the majority of mass shooters overwhelmingly identify as white and male. An interesting article I found at https://www.pewresearch.org/short-reads/2017/06/29/how-male-and-female-gun-owners-in-the-u-s-compare/, discussed the differences between male and female gun owners. At a basic level, there are more male gun owners than there are female. 
+
+```{r, Graph: Distribution of Mass Shootings Per State, echo = FALSE}
+demographic3 <- demographic |>
+  count(state, name = "Count") |>
+  ggplot(aes(x = state, y = `Count`, fill = state)) +
+  geom_bar(stat="identity", width=1) +
+  theme_bw() + 
+  xlab("State") +
+  ylab("Count Per State") +
+  ggtitle("Distribution of Mass Shooting Locations") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(demographic3)
+```
+Here I was able to make this graph interactive, where if you hover over the bar, it relays the information. This was done using ggplotly, the link having been listed above.  From this graph, we can see that California had the most shootings in comparison to the other states, at a staggering 11 shootings. I found this part interesting, as California has some of the strictest gun laws in the country. 
+
+```{r, Graph: Numerical Overlook of Guns per Shooting, echo = FALSE}
+demographic4 <- demographic |>
+  ggplot(aes(x = state, y = numweapons, fill = state)) +
+  theme_bw() +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    
+ggplotly(demographic4)
+  
+```
+Across the fifty states, I also wanted to analyze the amount of guns that were present per mass shooting within the state. The max number of guns brought to a shootings was 9, in Arkansas. This is in reference to the West Side Middle School Killings, in 1998. This served as an outlier, however, to Arkansas' data. The next largest number of guns brought was 7, in reference to the ESL shooting in 1988. 
+
+
+```{r, Graph: Gun Ownership Graph, echo=FALSE}
+gunviolenceOwner <- gunviolence |>
+  arrange(desc(ownership_rate)) |>
+  head(n=10)
+
+gunviolence1 <- gunviolenceOwner |>
+  ggplot(aes(x = fct_reorder(country, desc(ownership_rate)),
+             y = ownership_rate, fill = country)) + 
+  geom_bar(stat = "identity") + 
+  theme_bw() + 
+  xlab("Countries") + 
+  ylab("Gun Ownership Rate") +
+  ggtitle("Top 10 Gun Ownership Rates") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(gunviolence1)
+```
+Here, I wanted to look at gun ownership at a global level. I decided to filter the dataset once again and refactored the order of the country. I began by first arranging the mortality rate so that it was in descending order, before refactoring the country variable. Looking at the graph, the United States has the largest ownership rate among all other countries, at 88.0. This can be attributed to the fact that gun owners may have more than one gun, even having collections. 
+
+```{r, Graph: Mortality Rate Graph, echo=FALSE}
+gunviolenceMortality <- gunviolence |>
+  arrange(desc(mortality_rate)) |>
+  head(n=10)
+
+gunviolence2 <- gunviolenceMortality |>
+  ggplot(aes(x = fct_reorder(country, desc(mortality_rate)),
+             y = mortality_rate, fill = country)) + 
+  geom_bar(stat = "identity") + 
+  theme_bw() + 
+  xlab("Countries") + 
+  ylab("Mortality Rate") + 
+  ggtitle("Top 10 Mortality Rates") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(gunviolence2)
+```
+
+This graph looks at mortality rate. When looking at the top 10 countries with the highest mortality rate, El Salvador is the higehest at 37.0. This means we can't necessarily attribute gun ownership and mass shootings to a high mortality rate. This can be further proved through a simple linear regression model. We can use R to test gun ownership on mortality rate and see if there's a positive or negative relationship. 
+```{r, linear regression and correlation test, echo = FALSE}
+lmMortality <- lm(mortality_rate~ownership_rate, data = gunviolence)
+lmMortality
+cor.test(gunviolence$ownership_rate, gunviolence$mortality_rate)
+```
+
+We see that from both a linear regression model and a correlation test (https://statsandr.com/blog/correlation-coefficient-and-correlation-test-in-r/), that the two variables (mortality_rate and ownership_rate) aren't largely correlated. 
